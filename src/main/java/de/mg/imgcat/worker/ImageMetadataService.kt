@@ -60,28 +60,40 @@ object ImageMetadataService {
     }
 
     private fun determineDate(path: Path, exifDate: Date? = null): LocalDateTime {
-        if (exifDate != null)
-            return exifDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()
+        if (exifDate != null) {
+            val result = exifDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()
+            if (isValid(result)) return result
+        }
 
         val dateFromPath = extractDateFromFilename(path)
         if (dateFromPath != null)
             return dateFromPath.atStartOfDay()
 
         val fileDate = Files.getLastModifiedTime(path).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()
+        if (!isValid(fileDate))
+            error("invalid file date for ${path.fileName}")
         return fileDate
     }
 
     private fun extractDateFromFilename(path: Path): LocalDate? {
-        val datePattern = "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]".toRegex()
+        val d1 = extractDateFromFilename(path, "[0-9]{8}", 0..3, 4..5, 6..7)
+        if (d1 != null) return d1
+        return extractDateFromFilename(path, "[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}", 0..3, 5..6, 7..8)
+    }
+
+    private fun extractDateFromFilename(path: Path, pattern: String, year: IntRange, month: IntRange, day: IntRange): LocalDate? {
+        val datePattern = pattern.toRegex()
         val match = datePattern.find(path.fileName.toString())
         if (match != null) {
             val value = match.value
-            val y = value.substring(0, 4).toInt()
-            val m = value.substring(4, 6).toInt()
-            val d = value.substring(6, 8).toInt()
+            val y = value.substring(year).toInt()
+            val m = value.substring(month).toInt()
+            val d = value.substring(day).toInt()
             try {
                 val result = LocalDate.of(y, m, d)
-                log("${path.fileName} - using file name date: $result")
+                if (!isValid(result.atStartOfDay()))
+                    return null
+                println("${path.fileName} - using file name date: $result")
                 return result
             } catch (e: DateTimeException) {
                 return null
@@ -89,6 +101,8 @@ object ImageMetadataService {
         } else
             return null
     }
+
+    private fun isValid(date: LocalDateTime) = date.isBefore(LocalDateTime.now()) && date.isAfter(LocalDateTime.of(1974, 1, 1, 0, 0))
 
     fun showAll(fname: String, imageBytes: ByteArray) {
         var s = "all meta data: $fname\n"

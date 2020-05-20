@@ -17,7 +17,7 @@ object NewFileService {
             return null
 
         val date = metadata.date
-        val dateStr = date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd_hh:mm"))
+        val dateStr = date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd_hh_mm"))
         val newName = listOfNotNull(alreadyCataloged, dateStr, location, alreadyCataloged, currentFilePath.fileName)
                 .joinToString(separator = separator)
         val newPath = "${date.year}${File.separator}${date.monthValue}"
